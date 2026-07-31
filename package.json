@@ -3,12 +3,16 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/server.js",
+    "worker": "node src/worker.js",
+    "platform": "node fake-platform/server.js",
+    "make:image": "node scripts/make-source-image.js",
+    "test": "node --test test/"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "description": "",
+  "license": "MIT",
+  "description": "One blog post to a multi-platform campaign: variant images, tailored captions, an adapter layer, durable scheduling and signed delivery callbacks, all against a sandbox platform.",
   "dependencies": {
     "express": "^5.2.1",
     "pg": "^8.22.0",
