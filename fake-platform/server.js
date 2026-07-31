@@ -132,8 +132,25 @@ app.post("/:platform/posts", knownPlatform, authenticate, rateLimit, (req, res) 
     return res.status(200).json({ post_id: seen, duplicate: true, status: "accepted" });
   }
 
+  // The two platforms do not have the same shape, on purpose. Instagram wants
+  // media uploaded first and referenced by id, the way the real Graph API
+  // wants a container. X takes the image inline on the post. If both accepted
+  // the same request there would be nothing for an adapter layer to absorb.
   const { media_id: mediaId, caption, external_id: externalId } = req.body || {};
-  if (!mediaId) return fail(res, 400, "media_id is required");
+  const { image_base64: inlineImage, width, height } = req.body || {};
+
+  if (req.params.platform === "x") {
+    if (!inlineImage) return fail(res, 400, "image_base64 is required inline on this platform");
+    const expected = req.spec.image;
+    if (width !== expected.width || height !== expected.height) {
+      return fail(res, 422, "image dimensions rejected", {
+        expected: `${expected.width}x${expected.height}`,
+        received: `${width}x${height}`,
+      });
+    }
+  } else if (!mediaId) {
+    return fail(res, 400, "media_id is required, upload to /media first");
+  }
 
   const limits = req.spec.caption;
   if (typeof caption !== "string" || caption.length === 0) {
@@ -156,7 +173,7 @@ app.post("/:platform/posts", knownPlatform, authenticate, rateLimit, (req, res) 
     platform: req.params.platform,
     externalId,
     caption,
-    mediaId,
+    mediaId: mediaId || "inline",
     createdAt: new Date().toISOString(),
   });
   byIdempotencyKey.set(scoped, postId);
