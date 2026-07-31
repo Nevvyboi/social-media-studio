@@ -192,6 +192,18 @@ app.post("/_control/chaos", (req, res) => {
   res.json(chaos);
 });
 
+// Lets a test that fakes its own clock keep this server's clock in step. A
+// test that replaces the adapter's sleep has stopped time on one side only,
+// and the rate limiter would then see four requests in an instant that the
+// adapter believes were spread over twenty seconds.
+app.post("/_control/advance", (req, res) => {
+  const ms = Number(req.body?.ms || 0);
+  for (const [key, times] of requestLog) {
+    requestLog.set(key, times.map((at) => at - ms));
+  }
+  res.json({ advanced_ms: ms });
+});
+
 app.post("/_control/reset", (_req, res) => {
   posts.clear();
   byIdempotencyKey.clear();
