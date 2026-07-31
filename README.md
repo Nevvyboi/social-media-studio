@@ -278,6 +278,21 @@ Named rather than discovered later.
 - The campaign view polls nothing. It is a page you reload.
 - Media lives on a shared volume. Object storage is the obvious next step and
   the entry already carries a path rather than the bytes.
+- **The token refresh is per request, not per process.** `refreshed` is a local
+  flag in `request()`. Twenty workers in flight when the platform restarts means
+  twenty simultaneous refreshes, all of them writing over each other in
+  `platform_tokens`. It converges, and it is more requests than the situation
+  needs. One in-process promise per platform would collapse them.
+- **`Retry-After` is trusted without a ceiling.** A server answering
+  `Retry-After: 86400`, by policy or by bug, parks the worker for a day, and
+  the attempt cap does not save it because the wait happens between attempts
+  rather than as one of them. A ceiling of a few minutes, and a failure past
+  that, is the fix.
+
+Both of those came out of asking a model where the shipped policy still breaks
+after it already satisfied every requirement I had written down. Neither is
+fixed yet. The write-up is in
+[flyrank-ai-fluency/02-the-prompt-ladder.md](https://github.com/Nevvyboi/flyrank-ai-fluency/blob/main/02-the-prompt-ladder.md).
 
 ## Layout
 
