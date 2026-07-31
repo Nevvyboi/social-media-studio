@@ -30,8 +30,8 @@ class HttpPlatform {
    * otherwise from the platform. What lands in the store is ciphertext: the
    * plaintext exists in this process and nowhere else.
    */
-  async token() {
-    const stored = await this.tokenStore.get(this.platformKey);
+  async token({ fresh = false } = {}) {
+    const stored = fresh ? null : await this.tokenStore.get(this.platformKey);
     if (stored && stored.expiresAt > Date.now() + 30_000) {
       return decrypt(stored.ciphertext, this.encryptionKey);
     }
@@ -62,11 +62,12 @@ class HttpPlatform {
    */
   async request(path, { method = "POST", body, idempotencyKey }) {
     let lastError = null;
+    let refreshed = false;
 
     for (let attempt = 1; attempt <= this.maxAttempts; attempt += 1) {
       const headers = {
         "content-type": "application/json",
-        authorization: `Bearer ${await this.token()}`,
+        authorization: `Bearer ${await this.token({ fresh: refreshed })}`,
       };
       if (idempotencyKey) headers["idempotency-key"] = idempotencyKey;
 
@@ -85,6 +86,18 @@ class HttpPlatform {
 
       const payload = await response.json().catch(() => ({}));
       if (response.ok) return payload;
+
+      // A 401 is not a permanent refusal on the first sight of it. Tokens get
+      // revoked, keys rotate, and a platform that restarts forgets what it
+      // issued while our copy of it sits in the database looking unexpired.
+      // Refresh once and try again; a second 401 means the credentials are
+      // genuinely wrong and no amount of retrying fixes that.
+      if (response.status === 401 && !refreshed) {
+        refreshed = true;
+        this.log(`${this.platformKey} rejected the stored token, fetching a new one`);
+        attempt -= 1;
+        continue;
+      }
 
       if (!RETRYABLE_STATUSES.has(response.status)) {
         throw new PermanentPublishError(

@@ -12,7 +12,7 @@ const { after, before, test } = require("node:test");
 
 const { app: platformApp } = require("../fake-platform/server");
 const { buildPublishers } = require("../src/publisher/registry");
-const { decrypt } = require("../src/crypto");
+const { decrypt, encrypt } = require("../src/crypto");
 const { variantFor } = require("../src/images");
 
 const KEY = "test-encryption-key";
@@ -170,6 +170,25 @@ test("the stored token is ciphertext and reads back correctly", async () => {
   assert.match(stored.ciphertext, /^v1:/);
   assert.ok(!stored.ciphertext.includes(decrypt(stored.ciphertext, KEY)), "plaintext appears in the stored value");
   assert.equal(decrypt(stored.ciphertext, KEY).length, 48);
+});
+
+// The platform container restarting is enough to cause this: its tokens are in
+// memory, ours are in Postgres and still look unexpired.
+test("a token the platform has forgotten is refreshed rather than failed", async () => {
+  await reset();
+  const registry = publishers();
+  await registry.for("x").publish(await requestFor("x", "token-still-good"));
+
+  const stale = tokens.get("x");
+  tokens.set("x", {
+    ciphertext: encrypt("a-token-nobody-issued", KEY),
+    expiresAt: Date.now() + 3600_000,
+  });
+
+  const result = await registry.for("x").publish(await requestFor("x", "after-restart"));
+
+  assert.ok(result.postId, "a forgotten token was treated as a permanent failure");
+  assert.notEqual(tokens.get("x").ciphertext, stale.ciphertext, "the stored token was not replaced");
 });
 
 test("two encryptions of one token differ, so the IV is not reused", async () => {

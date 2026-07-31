@@ -32,6 +32,11 @@ const requestLog = new Map();
 // without waiting for the rate limiter or breaking anything permanently.
 let chaos = { failNext: 0, status: 429 };
 
+// Set with POST /_control/latency. A slow platform is what makes a worker
+// crash land in the middle of a publish rather than between two of them,
+// which is the case the crash-resume demo needs.
+let latencyMs = 0;
+
 const app = express();
 app.use(express.json({ limit: "12mb" }));
 
@@ -179,7 +184,13 @@ app.post("/:platform/posts", knownPlatform, authenticate, rateLimit, (req, res) 
   byIdempotencyKey.set(scoped, postId);
 
   scheduleDelivery(posts.get(postId));
-  res.status(201).json({ post_id: postId, duplicate: false, status: "accepted" });
+
+  // The post exists here, before the caller has the response. That ordering is
+  // the whole reason idempotency keys matter: a caller that dies now has
+  // produced a post it has no record of.
+  setTimeout(() => {
+    res.status(201).json({ post_id: postId, duplicate: false, status: "accepted" });
+  }, latencyMs);
 });
 
 app.get("/:platform/posts", knownPlatform, (req, res) => {
@@ -204,11 +215,17 @@ app.post("/_control/advance", (req, res) => {
   res.json({ advanced_ms: ms });
 });
 
+app.post("/_control/latency", (req, res) => {
+  latencyMs = Number(req.body?.ms || 0);
+  res.json({ latency_ms: latencyMs });
+});
+
 app.post("/_control/reset", (_req, res) => {
   posts.clear();
   byIdempotencyKey.clear();
   requestLog.clear();
   chaos = { failNext: 0, status: 429 };
+  latencyMs = 0;
   res.json({ ok: true });
 });
 

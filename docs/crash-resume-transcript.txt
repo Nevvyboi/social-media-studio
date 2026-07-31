@@ -1,0 +1,14 @@
+[13:15:40] crash-demo-1785503737:x accepted as post_4307510ac7a9c64b on attempt 1
+[13:15:47] reclaimed crash-demo-1785503737:instagram from a worker that died holding it, attempt 1
+[13:15:48] crash-demo-1785503737:instagram accepted as post_954505320d9000c3 (platform recognised the idempotency key, no second post) on attempt 2
+
+What the platform held at each point:
+
+  while the worker was dying   instagram 1 post, x 0 posts
+  after the worker resumed     instagram 1 post, x 1 post
+
+The instagram post existed on the platform before the worker died holding the
+job. The reclaimed attempt sent the same idempotency key, the platform
+recognised it, and returned the post it already had rather than making a
+second one. That is the whole reason the key is generated from the campaign
+and the platform rather than per attempt.
