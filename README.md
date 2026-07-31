@@ -116,6 +116,23 @@ after the worker resumed     instagram 1 post, x 1 post
 One post per platform, across a crash mid publish. Full transcript in
 [docs/crash-resume-transcript.txt](docs/crash-resume-transcript.txt).
 
+## Scheduling, and the two transitions
+
+A post scheduled 25 seconds out, polled every 5:
+
+```
+13:18:08  job queued  run_after 13:18:28   entry queued
+13:18:23  job queued  run_after 13:18:28   entry queued
+13:18:28  job done    run_after 13:18:28   entry accepted
+13:18:34  job done    run_after 13:18:28   entry published
+```
+
+The worker polls twice a second and passes over the row four times, because
+`claim()` filters on `run_after <= now()` and not on status alone. Then the
+entry sits at `accepted` for six seconds before it becomes `published`, and
+nothing the worker did moved it. The platform's signed callback did.
+[docs/scheduling-transcript.txt](docs/scheduling-transcript.txt).
+
 ## Image variants
 
 Each platform crops a different shape out of the same picture, so the subject
