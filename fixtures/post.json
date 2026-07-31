@@ -1,0 +1,7 @@
+{
+  "id": "polite-scraper",
+  "title": "A crawler that behaves itself",
+  "url": "https://github.com/Nevvyboi/polite-scraper",
+  "topics": ["scraping", "robots", "caching", "http", "etl", "backend", "python"],
+  "body": "Most scrapers are written as if the site on the other end does not exist. This one is written the other way round. It reads robots.txt before every URL and keeps the line that refused a page, so a skipped URL can be explained rather than shrugged at. It spaces requests by the host's crawl-delay, or a one second floor when none is published, and reports the smallest gap it actually measured. It caches every response with its ETag, so the second run sends If-None-Match and downloads 0.1 KB where the first downloaded 112.4 KB. The cleaning stage is where the real defects live. Prices arrived as mojibake because the server sends text/html with no charset. An availability string was truthy when the book was out of stock. Descriptions carried a duplicated preview that would have been embedded twice. Counting the corpus showed the first de-duplicator missing 295 of those while the README already called the case theoretical."
+}
