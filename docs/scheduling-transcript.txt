@@ -1,0 +1,20 @@
+A post scheduled 25 seconds into the future, polled every 5 seconds.
+
+  now  13:18:03  scheduled for 13:18:28
+
+  13:18:08  job queued  run_after 13:18:28   entry queued
+  13:18:13  job queued  run_after 13:18:28   entry queued
+  13:18:18  job queued  run_after 13:18:28   entry queued
+  13:18:23  job queued  run_after 13:18:28   entry queued
+  13:18:28  job done    run_after 13:18:28   entry accepted
+  13:18:34  job done    run_after 13:18:28   entry published
+
+Two things are visible here that are easy to claim and harder to show.
+
+The job does not run early. The worker polls every 500ms and passes over this
+row four times, because claim() filters on run_after <= now() rather than on
+status alone.
+
+The entry is "accepted" at 13:18:28 and "published" at 13:18:34, six seconds
+later. Nothing the worker did moved it to published. The platform's signed
+delivery callback did.
